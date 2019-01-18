@@ -1,0 +1,40 @@
+From 93f79f5790a3021a464d0656e2e04812ac54cbde Mon Sep 17 00:00:00 2001
+From: Mikhail Svetkin <mikhail.svetkin@qt.io>
+Date: Mon, 14 May 2018 10:15:43 +0200
+Subject: macOS: minor refactoring in handler of global monitor
+
+Use new helper functions for mouse events and buttons
+
+Change-Id: Idb74fbd4ffde0c22b3d4bbddb5761567081bdf7c
+Reviewed-by: Gabriel de Dietrich <gabriel.dedietrich@qt.io>
+---
+ src/plugins/platforms/cocoa/qcocoawindow.mm | 11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
+
+(limited to 'src/plugins/platforms/cocoa/qcocoawindow.mm')
+
+diff --git a/src/plugins/platforms/cocoa/qcocoawindow.mm b/src/plugins/platforms/cocoa/qcocoawindow.mm
+index 4618db1aa3..1d3c05bb81 100644
+--- a/src/plugins/platforms/cocoa/qcocoawindow.mm
++++ b/src/plugins/platforms/cocoa/qcocoawindow.mm
+@@ -399,11 +399,12 @@ void QCocoaWindow::setVisible(bool visible)
+                     if (!(parentCocoaWindow && window()->transientParent()->isActive()) && window()->type() == Qt::Popup) {
+                         removeMonitor();
+                         monitor = [NSEvent addGlobalMonitorForEventsMatchingMask:NSLeftMouseDownMask|NSRightMouseDownMask|NSOtherMouseDownMask|NSMouseMovedMask handler:^(NSEvent *e) {
+-                            QPointF localPoint = QCocoaScreen::mapFromNative([NSEvent mouseLocation]);
+-                            const auto button = e.type == NSEventTypeMouseMoved ? Qt::NoButton : cocoaButton2QtButton([e buttonNumber]);
+-                            const auto eventType = e.type == NSEventTypeMouseMoved ? QEvent::MouseMove : QEvent::MouseButtonPress;
+-                            QWindowSystemInterface::handleMouseEvent(window(), window()->mapFromGlobal(localPoint.toPoint()), localPoint,
+-                                                                     Qt::MouseButtons(uint(NSEvent.pressedMouseButtons & 0xFFFF)), button, eventType);
++                            const auto button = cocoaButton2QtButton(e);
++                            const auto buttons = currentlyPressedMouseButtons();
++                            const auto eventType = cocoaEvent2QtMouseEvent(e);
++                            const auto globalPoint = QCocoaScreen::mapFromNative(NSEvent.mouseLocation);
++                            const auto localPoint = window()->mapFromGlobal(globalPoint.toPoint());
++                            QWindowSystemInterface::handleMouseEvent(window(), localPoint, globalPoint, buttons, button, eventType);
+                         }];
+                     }
+                 }
+-- 
+cgit v1.2.1
+

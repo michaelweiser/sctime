@@ -1,0 +1,121 @@
+From c427ba53aa0ee1a71aa670783f65bcfd230da653 Mon Sep 17 00:00:00 2001
+From: Mikhail Svetkin <mikhail.svetkin@qt.io>
+Date: Fri, 27 Apr 2018 12:05:06 +0200
+Subject: macOS: Transition to new QPA dag-and-drop API
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The new API allows us to pass the mouse buttons and
+keyboard modifiers along with the QWSI event.
+
+Task-number: QTBUG-57168
+Change-Id: Ic54c012d1593d922e7dcd31facab2f2c630c7996
+Reviewed-by: Gatis Paeglis <gatis.paeglis@qt.io>
+Reviewed-by: Tor Arne Vestbø <tor.arne.vestbo@qt.io>
+---
+ src/plugins/platforms/cocoa/qcocoahelpers.h     |  6 +++
+ src/plugins/platforms/cocoa/qcocoahelpers.mm    | 71 +++++++++++++++++++++++++
+ src/plugins/platforms/cocoa/qnsview_dragging.mm | 42 +++++++--------
+ src/plugins/platforms/cocoa/qnsview_mouse.mm    | 11 ++--
+ 4 files changed, 105 insertions(+), 25 deletions(-)
+
+diff --git a/src/plugins/platforms/cocoa/qcocoahelpers.h b/src/plugins/platforms/cocoa/qcocoahelpers.h
+index 516eac0503..cf8a241db5 100644
+--- a/src/plugins/platforms/cocoa/qcocoahelpers.h
++++ b/src/plugins/platforms/cocoa/qcocoahelpers.h
+@@ -98,6 +98,12 @@ QPointF qt_mac_flip(const QPointF &pos, const QRectF &reference);
+ QRectF qt_mac_flip(const QRectF &rect, const QRectF &reference);
+ 
+ Qt::MouseButton cocoaButton2QtButton(NSInteger buttonNum);
++Qt::MouseButton cocoaButton2QtButton(NSEvent *event);
++
++QEvent::Type cocoaEvent2QtMouseEvent(NSEvent *event);
++
++Qt::MouseButtons cocoaMouseButtons2QtMouseButtons(NSInteger pressedMouseButtons);
++Qt::MouseButtons currentlyPressedMouseButtons();
+ 
+ // strip out '&' characters, and convert "&&" to a single '&', in menu
+ // text - since menu text is sometimes decorated with these for Windows
+diff --git a/src/plugins/platforms/cocoa/qcocoahelpers.mm b/src/plugins/platforms/cocoa/qcocoahelpers.mm
+index a1cf1bc632..12be222ab3 100644
+--- a/src/plugins/platforms/cocoa/qcocoahelpers.mm
++++ b/src/plugins/platforms/cocoa/qcocoahelpers.mm
+@@ -278,6 +278,77 @@ Qt::MouseButton cocoaButton2QtButton(NSInteger buttonNum)
+     return Qt::NoButton;
+ }
+ 
++/*!
++  \fn Qt::MouseButton cocoaButton2QtButton(NSEvent *event)
++
++  Returns the Qt::Button that corresponds to an NSEvent.buttonNumber.
++
++  \note AppKit will use buttonNumber 0 to indicate both "left button"
++  and "no button". Only NSEvents that describes mouse press/release/dragging
++  events (e.g NSEventTypeOtherMouseDown) will contain a valid
++  button number.
++*/
++Qt::MouseButton cocoaButton2QtButton(NSEvent *event)
++{
++    if (event.type == NSMouseMoved)
++        return Qt::NoButton;
++
++    return cocoaButton2QtButton(event.buttonNumber);
++}
++
++/*!
++  \fn QEvent::Type cocoaEvent2QtMouseEvent(NSEvent *event)
++
++  Returns the QEvent::Type that corresponds to an NSEvent.type.
++*/
++QEvent::Type cocoaEvent2QtMouseEvent(NSEvent *event)
++{
++    switch (event.type) {
++    case NSLeftMouseDown:
++    case NSRightMouseDown:
++    case NSOtherMouseDown:
++        return QEvent::MouseButtonPress;
++
++    case NSLeftMouseUp:
++    case NSRightMouseUp:
++    case NSOtherMouseUp:
++        return QEvent::MouseButtonRelease;
++
++    case NSLeftMouseDragged:
++    case NSRightMouseDragged:
++    case NSOtherMouseDragged:
++        return QEvent::MouseMove;
++
++    case NSMouseMoved:
++        return QEvent::MouseMove;
++
++    default:
++        break;
++    }
++
++    return QEvent::None;
++}
++
++/*!
++  \fn Qt::MouseButtons cocoaMouseButtons2QtMouseButtons(NSInteger pressedMouseButtons)
++
++  Returns the Qt::MouseButtons that corresponds to an NSEvent.pressedMouseButtons.
++*/
++Qt::MouseButtons cocoaMouseButtons2QtMouseButtons(NSInteger pressedMouseButtons)
++{
++  return static_cast<Qt::MouseButton>(pressedMouseButtons & Qt::MouseButtonMask);
++}
++
++/*!
++  \fn Qt::MouseButtons currentlyPressedMouseButtons()
++
++  Returns the Qt::MouseButtons that corresponds to an NSEvent.pressedMouseButtons.
++*/
++Qt::MouseButtons currentlyPressedMouseButtons()
++{
++  return cocoaMouseButtons2QtMouseButtons(NSEvent.pressedMouseButtons);
++}
++
+ QString qt_mac_removeAmpersandEscapes(QString s)
+ {
+     return QPlatformTheme::removeMnemonics(s).trimmed();

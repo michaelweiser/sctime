@@ -8,12 +8,12 @@ CURL_OPTS=-L
 
 PREFIX=$(BUILD_DIR)/deps
 
-OSX_VERSION=10.12
+OSX_VERSION=10.11
 SDK=macosx$(OSX_VERSION)
 SDK_PATH=$(shell xcrun --sdk $(SDK) --show-sdk-path)
 
-QT_MINOR=5.12
-QT_VER=$(QT_MINOR).0
+QT_MINOR=5.11
+QT_VER=$(QT_MINOR).1
 QT_BN=qt-everywhere-src-$(QT_VER)
 QT_SOURCE_FILE=$(QT_BN).tar.xz
 QT_URL=http://download.qt.io/official_releases/qt/$(QT_MINOR)/$(QT_VER)/single/$(QT_SOURCE_FILE)
