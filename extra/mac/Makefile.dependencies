@@ -8,7 +8,8 @@ CURL_OPTS=-L
 
 PREFIX=$(BUILD_DIR)/deps
 
-SDK=macosx10.12
+OSX_VERSION=10.12
+SDK=macosx$(OSX_VERSION)
 SDK_PATH=$(shell xcrun --sdk $(SDK) --show-sdk-path)
 
 QT_MINOR=5.12
@@ -27,8 +28,10 @@ PGSQL_URL=http://ftp.postgresql.org/pub/source/v$(PGSQL_VER)/$(PGSQL_SOURCE_FILE
 PGSQL_DIR=$(BUILD_DIR)/postgres
 PGSQL_SOURCE=$(PGSQL_DIR)/$(PGSQL_SOURCE_FILE)
 PGSQL_SOURCE_DIR=$(PGSQL_DIR)/$(PGSQL_BN)
-PGSQL_COMMON_CFLAGS=-mmacosx-version-min=10.12
-PGSQL_COMMON_LDFLAGS=-mmacosx-version-min=10.12
+# while postgres adds the sysroot to CPPFLAGS (which are added to all compile
+# commands in addition to CFLAGS), it does not add the syslibroot to LDFLAGS
+PGSQL_CFLAGS=-mmacosx-version-min=$(OSX_VERSION)
+PGSQL_LDFLAGS=-Wl,-syslibroot,$(SDK_PATH) -mmacosx-version-min=$(OSX_VERSION)
 PGSQL_CONFIGURE_FLAGS=--without-openssl --without-perl --without-python --without-tcl --without-bonjour --without-pam --with-gssapi --without-libxml
 
 .PHONY: all clean mrproper clean.destdir \
@@ -116,10 +119,12 @@ $(PGSQL_DIR)/compiled: $(PGSQL_DIR)/configured
 		$(MAKE) MAKELEVEL=0 && \
 		touch "$@"
 
+# we need to set PG_SYSROOT to defeat postgres' autodetection which would add
+# the native or even future (if the only available) SDK as sysroot to CPPFLAGS
 $(PGSQL_DIR)/configured: $(PGSQL_DIR)/patched
 	cd "$(PGSQL_SOURCE_DIR)" && \
-		CFLAGS="$(PGSQL_COMMON_CFLAGS)" \
-			LDFLAGS="$(PGSQL_COMMON_LDFLAGS)" \
+		CFLAGS="$(PGSQL_CFLAGS)" \
+			LDFLAGS="$(PGSQL_LDFLAGS)" \
 			PG_SYSROOT="$(SDK_PATH)" \
 			./configure --prefix="$(PREFIX)" \
 				$(PGSQL_CONFIGURE_FLAGS) && \
